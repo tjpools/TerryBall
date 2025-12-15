@@ -1,0 +1,338 @@
+name: Repository Activity Monitor
+
+# This workflow monitors and logs important repository events
+# Educational Purpose: Learn about audit trails and security monitoring
+
+# WHAT THIS MONITORS:
+# - Branch creation/deletion
+# - Tag creation
+# - Release events
+# - Workflow dispatch events
+# These events are important for security auditing and change tracking
+
+on:
+  create:     # Branch or tag creation
+  delete:     # Branch or tag deletion
+  release:    # Release published, edited, etc.
+  push:
+    branches:
+      - main  # Monitor pushes to main branch
+  workflow_dispatch:  # Manual trigger
+
+# Minimal permissions needed
+permissions:
+  contents: read
+  issues: write  # Optional: Create issues for alerts
+
+jobs:
+  # Job 1: Log Repository Events
+  log-event:
+    name: Log Repository Event
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Step 1: Identify the event type
+      - name: Identify event
+        id: event-type
+        run: |
+          EVENT="${{ github.event_name }}"
+          echo "event=$EVENT" >> $GITHUB_OUTPUT
+          echo "## 📋 Repository Event Detected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Event Type:** \`$EVENT\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Actor:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+      
+      # Step 2: Handle branch creation
+      - name: Log branch creation
+        if: github.event_name == 'create' && github.event.ref_type == 'branch'
+        run: |
+          echo "### 🌿 New Branch Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch name:** \`${{ github.event.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Created by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Purpose:** Track who creates branches and when" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ This is a normal activity. Branches allow parallel development." >> $GITHUB_STEP_SUMMARY
+          
+          # Log details for audit trail
+          echo "----------------------------------------"
+          echo "BRANCH CREATION EVENT"
+          echo "Branch: ${{ github.event.ref }}"
+          echo "Creator: ${{ github.actor }}"
+          echo "Time: $(date -u)"
+          echo "Repository: ${{ github.repository }}"
+          echo "----------------------------------------"
+      
+      # Step 3: Handle branch deletion
+      - name: Log branch deletion
+        if: github.event_name == 'delete' && github.event.ref_type == 'branch'
+        run: |
+          echo "### 🗑️ Branch Deleted" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch name:** \`${{ github.event.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Deleted by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check if this was the main branch (should be protected!)
+          if [[ "${{ github.event.ref }}" == "main" || "${{ github.event.ref }}" == "master" ]]; then
+            echo "🚨 **ALERT: Main/Master branch was deleted!**" >> $GITHUB_STEP_SUMMARY
+            echo "This should not happen if branch protection is properly configured." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Feature branch cleanup is normal after merging." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Security Note:** Branch protection should prevent deletion of main branches." >> $GITHUB_STEP_SUMMARY
+          
+          # Log details
+          echo "----------------------------------------"
+          echo "BRANCH DELETION EVENT"
+          echo "Branch: ${{ github.event.ref }}"
+          echo "Deleted by: ${{ github.actor }}"
+          echo "Time: $(date -u)"
+          echo "Repository: ${{ github.repository }}"
+          echo "----------------------------------------"
+      
+      # Step 4: Handle tag creation
+      - name: Log tag creation
+        if: github.event_name == 'create' && github.event.ref_type == 'tag'
+        run: |
+          echo "### 🏷️ New Tag Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag name:** \`${{ github.event.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Created by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**What are tags?** Tags mark specific points in history, typically releases." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Security consideration:** Tags should be signed with GPG for authenticity." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check if signed: \`git tag -v ${{ github.event.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          
+          # Log details
+          echo "----------------------------------------"
+          echo "TAG CREATION EVENT"
+          echo "Tag: ${{ github.event.ref }}"
+          echo "Creator: ${{ github.actor }}"
+          echo "Time: $(date -u)"
+          echo "Repository: ${{ github.repository }}"
+          echo "----------------------------------------"
+      
+      # Step 5: Handle tag deletion
+      - name: Log tag deletion
+        if: github.event_name == 'delete' && github.event.ref_type == 'tag'
+        run: |
+          echo "### ⚠️ Tag Deleted" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag name:** \`${{ github.event.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Deleted by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🚨 **WARNING:** Deleting tags can be problematic!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Why this matters:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Tags often represent releases" >> $GITHUB_STEP_SUMMARY
+          echo "- Users may depend on specific tag versions" >> $GITHUB_STEP_SUMMARY
+          echo "- Deleting tags can break builds and deployments" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Best practice:** Don't delete tags unless absolutely necessary." >> $GITHUB_STEP_SUMMARY
+          
+          # Log details
+          echo "----------------------------------------"
+          echo "TAG DELETION EVENT"
+          echo "Tag: ${{ github.event.ref }}"
+          echo "Deleted by: ${{ github.actor }}"
+          echo "Time: $(date -u)"
+          echo "Repository: ${{ github.repository }}"
+          echo "----------------------------------------"
+      
+      # Step 6: Handle release events
+      - name: Log release event
+        if: github.event_name == 'release'
+        run: |
+          echo "### 🚀 Release Event" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Action:** \`${{ github.event.action }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Release:** ${{ github.event.release.name || github.event.release.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** \`${{ github.event.release.tag_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Created by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Prerelease:** ${{ github.event.release.prerelease }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Draft:** ${{ github.event.release.draft }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Different messages based on action
+          case "${{ github.event.action }}" in
+            "published")
+              echo "✅ **Release published** - This version is now public." >> $GITHUB_STEP_SUMMARY
+              ;;
+            "edited")
+              echo "📝 **Release edited** - Release notes or metadata updated." >> $GITHUB_STEP_SUMMARY
+              ;;
+            "deleted")
+              echo "🗑️ **Release deleted** - This version has been removed." >> $GITHUB_STEP_SUMMARY
+              ;;
+            *)
+              echo "ℹ️  Release action: ${{ github.event.action }}" >> $GITHUB_STEP_SUMMARY
+              ;;
+          esac
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Security Note:** Release assets should be verified before distribution." >> $GITHUB_STEP_SUMMARY
+          
+          # Log details
+          echo "----------------------------------------"
+          echo "RELEASE EVENT"
+          echo "Action: ${{ github.event.action }}"
+          echo "Release: ${{ github.event.release.name }}"
+          echo "Tag: ${{ github.event.release.tag_name }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Time: $(date -u)"
+          echo "Repository: ${{ github.repository }}"
+          echo "----------------------------------------"
+      
+      # Step 7: Handle push to main
+      - name: Log push to main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "### 📝 Push to Main Branch" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Pushed by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Number of commits:** ${{ github.event.commits.length || 1 }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check if this was a direct push (should be prevented by branch protection)
+          if [[ "${{ github.event.forced }}" == "true" ]]; then
+            echo "🚨 **ALERT: Force push detected!**" >> $GITHUB_STEP_SUMMARY
+            echo "Force pushes to main should be blocked by branch protection!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Regular push (likely a merge from PR)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Security consideration:** Direct pushes to main should be prevented." >> $GITHUB_STEP_SUMMARY
+          echo "See [Branch Protection Setup](../docs/BRANCH_PROTECTION_SETUP.md)" >> $GITHUB_STEP_SUMMARY
+          
+          # Log commit details
+          echo "----------------------------------------"
+          echo "PUSH TO MAIN BRANCH"
+          echo "Pusher: ${{ github.actor }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Forced: ${{ github.event.forced }}"
+          echo "Time: $(date -u)"
+          echo "Repository: ${{ github.repository }}"
+          echo "----------------------------------------"
+      
+      # Step 8: Generate audit summary
+      - name: Generate audit log
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Audit Information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow run ID:** \`${{ github.run_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow run number:** \`${{ github.run_number }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Event ID:** \`${{ github.event.head_commit.id || github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎓 Why Monitor Repository Events?" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Security reasons:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Detect unauthorized access or changes" >> $GITHUB_STEP_SUMMARY
+          echo "- Track who did what and when" >> $GITHUB_STEP_SUMMARY
+          echo "- Identify suspicious patterns" >> $GITHUB_STEP_SUMMARY
+          echo "- Maintain audit trail for compliance" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Operational reasons:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Understand team workflows" >> $GITHUB_STEP_SUMMARY
+          echo "- Debug issues (\"when did this change?\")" >> $GITHUB_STEP_SUMMARY
+          echo "- Track project evolution" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔍 What to Look For" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Normal activities:** ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Creating feature branches" >> $GITHUB_STEP_SUMMARY
+          echo "- Deleting merged branches" >> $GITHUB_STEP_SUMMARY
+          echo "- Creating release tags" >> $GITHUB_STEP_SUMMARY
+          echo "- Publishing releases" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Suspicious activities:** 🚨" >> $GITHUB_STEP_SUMMARY
+          echo "- Force pushes to main" >> $GITHUB_STEP_SUMMARY
+          echo "- Deleting main/master branch" >> $GITHUB_STEP_SUMMARY
+          echo "- Deleting release tags" >> $GITHUB_STEP_SUMMARY
+          echo "- Unexpected late-night activity" >> $GITHUB_STEP_SUMMARY
+          echo "- Activity from unknown users" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📚 Additional Resources" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [GitHub Audit Log](https://docs.github.com/en/organizations/keeping-your-organization-secure/reviewing-the-audit-log-for-your-organization)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Security Best Practices](../SECURITY.md)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Branch Protection Guide](../docs/BRANCH_PROTECTION_SETUP.md)" >> $GITHUB_STEP_SUMMARY
+
+# EDUCATIONAL NOTES:
+#
+# WHAT IS AN AUDIT TRAIL?
+# An audit trail is a chronological record of system activities.
+# It answers: Who did what, when, where, and sometimes why?
+#
+# WHY MONITOR REPOSITORY EVENTS?
+# 1. SECURITY: Detect unauthorized access or malicious changes
+# 2. COMPLIANCE: Many regulations require audit logs
+# 3. DEBUGGING: Track when issues were introduced
+# 4. ACCOUNTABILITY: Know who made each change
+# 5. FORENSICS: Investigate incidents after the fact
+#
+# EVENTS THIS WORKFLOW MONITORS:
+# - create: New branches/tags (normal development)
+# - delete: Removed branches/tags (potential security concern)
+# - release: New versions published (important milestones)
+# - push: Code changes to main (should go through PR)
+#
+# LIMITATIONS:
+# - This only logs events that trigger workflows
+# - Some repository settings changes aren't captured
+# - For complete audit logs, use GitHub Enterprise with audit log API
+# - Consider integrating with SIEM (Security Information and Event Management) tools
+#
+# ENHANCED MONITORING IDEAS:
+# 1. Send alerts to Slack/Teams/Discord
+# 2. Store logs in external database
+# 3. Create issues for suspicious activities
+# 4. Generate weekly/monthly audit reports
+# 5. Integrate with security dashboards
+# 6. Set up anomaly detection (unusual activity patterns)
+#
+# REAL-WORLD INCIDENT EXAMPLE:
+# - Attacker gains access to developer account
+# - Force pushes to main branch to hide malicious commit
+# - This workflow logs the force push
+# - Security team sees the alert and investigates
+# - Malicious code is found and removed
+# - Account is secured and team is notified
+#
+# COMPLIANCE CONSIDERATIONS:
+# Many security frameworks require audit trails:
+# - SOC 2: Logical access controls monitoring
+# - ISO 27001: A.12.4.1 Event logging
+# - PCI DSS: Requirement 10 (Track and monitor access)
+# - HIPAA: Access audit controls
+#
+# This workflow helps meet these requirements.
+#
+# PRIVACY CONSIDERATIONS:
+# - Logs contain usernames and timestamps
+# - Ensure compliance with privacy regulations (GDPR, etc.)
+# - Don't log sensitive data (passwords, keys, PII)
+# - Retention: Consider how long to keep logs
+#
+# CUSTOMIZATION OPTIONS:
+# - Add email notifications
+# - Create issues for critical events
+# - Integrate with incident response systems
+# - Add Slack/Teams webhooks
+# - Store logs in external service (Splunk, DataDog, etc.)

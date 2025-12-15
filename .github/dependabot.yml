@@ -1,0 +1,127 @@
+# Dependabot Configuration for TerryBall
+# This file configures GitHub's Dependabot to automatically check for dependency updates
+# and security vulnerabilities in your project dependencies.
+
+# Learn more: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+
+updates:
+  # Monitor GitHub Actions workflow dependencies
+  # GitHub Actions can have security vulnerabilities too!
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      # Check for updates every Monday at 6am UTC
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    # Automatically create pull requests for updates
+    open-pull-requests-limit: 5
+    # Add reviewers (optional - configure team members here)
+    # reviewers:
+    #   - "username"
+    # Add labels to make PRs easy to identify and filter
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "security"
+    # Group minor and patch updates together to reduce PR noise
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Add a prefix to commit messages
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  # Monitor npm dependencies (JavaScript/Node.js)
+  # Even though this is a client-side project, we monitor for any future npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      # Check for updates every Monday at 7am UTC (stagger to avoid rate limits)
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Etc/UTC"
+    # Security updates are created automatically regardless of schedule
+    # This schedule is for version updates
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
+      - "javascript"
+    # Group development dependency updates together
+    groups:
+      npm-development:
+        patterns:
+          - "*"
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      npm-production:
+        patterns:
+          - "*"
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+    # Customize commit messages
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Pull request branch naming
+    pull-request-branch-name:
+      separator: "-"
+    # Ignore specific dependencies (if needed)
+    # ignore:
+    #   - dependency-name: "package-name"
+    #     versions: ["1.x", "2.x"]
+
+# Additional Configuration Notes:
+#
+# SECURITY UPDATES:
+# - Dependabot automatically creates PRs for security vulnerabilities
+# - These are separate from version updates and aren't limited by open-pull-requests-limit
+# - Security PRs have higher priority and should be reviewed immediately
+#
+# WHY WEEKLY UPDATES?
+# - Balances security with stability
+# - Prevents overwhelming number of PRs
+# - Can be changed to "daily" for high-security projects
+#
+# GROUPING STRATEGY:
+# - Groups minor/patch updates to reduce noise
+# - Major updates still create individual PRs (require more careful review)
+# - Separates development vs production dependencies
+#
+# REVIEW PROCESS:
+# 1. Dependabot creates PR with changelog and compatibility info
+# 2. CI/CD runs tests automatically
+# 3. Review changes and test locally if needed
+# 4. Merge if tests pass and no breaking changes
+# 5. Monitor for issues after merge
+#
+# CUSTOMIZATION:
+# - Adjust schedules based on your workflow
+# - Add/remove labels as needed
+# - Configure reviewers for automatic assignment
+# - Set up Slack/Teams notifications for security updates
+#
+# BEST PRACTICES:
+# - Don't ignore security updates without good reason
+# - Review Dependabot PRs weekly (don't let them pile up)
+# - Test thoroughly before merging production dependency updates
+# - Keep this file updated as project dependencies evolve
+# - Enable "Dependabot security updates" in repository settings
+#
+# FUTURE ADDITIONS:
+# If you add more package managers (pip, composer, gradle, etc.),
+# add new entries here following the same pattern.
