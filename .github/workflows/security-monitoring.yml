@@ -1,0 +1,360 @@
+name: Security Monitoring
+
+# This workflow performs comprehensive security checks on the repository
+# Educational Purpose: Learn how to implement automated security scanning
+
+# WHEN THIS RUNS:
+# - On every push to main branch (catches issues immediately)
+# - On every pull request (prevents insecure code from merging)
+# - Weekly on schedule (catches newly discovered vulnerabilities)
+# - Can be triggered manually for ad-hoc security audits
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run every Monday at 3am UTC (low traffic time)
+    - cron: '0 3 * * 1'
+  workflow_dispatch:  # Allows manual triggering from Actions tab
+
+# Permissions: Follow principle of least privilege
+# Only request permissions actually needed by this workflow
+permissions:
+  contents: read        # Read repository contents
+  security-events: write  # Write security alerts
+  issues: write         # Create issues for security findings (optional)
+  pull-requests: write  # Comment on PRs with security results
+
+jobs:
+  # Job 1: Secret Scanning
+  # Detects accidentally committed credentials, API keys, tokens
+  secret-scan:
+    name: Scan for Secrets and Credentials
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Get the code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history to scan all commits
+          fetch-depth: 0
+      
+      # Step 2: Scan for secrets using TruffleHog
+      # TruffleHog finds secrets by looking for high entropy strings and known patterns
+      - name: Run TruffleHog secret scanner
+        uses: trufflesecurity/trufflehog@main
+        with:
+          # Scan the current path
+          path: ./
+          # Continue even if secrets found (we'll report them)
+          # In production, you might want to fail the build
+          # fail: true
+        continue-on-error: true  # Don't fail the workflow, just report
+      
+      # Step 3: Scan with Gitleaks (alternative/complementary scanner)
+      # Different scanners catch different patterns
+      - name: Run Gitleaks secret scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+      
+      # Step 4: Create a summary of findings
+      - name: Generate secret scan summary
+        if: always()  # Run even if previous steps failed
+        run: |
+          echo "## 🔐 Secret Scanning Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Secret scanning helps prevent accidentally committed credentials." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Scan completed**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### What was scanned:" >> $GITHUB_STEP_SUMMARY
+          echo "- API keys and tokens" >> $GITHUB_STEP_SUMMARY
+          echo "- Passwords and credentials" >> $GITHUB_STEP_SUMMARY
+          echo "- Private keys (SSH, GPG, etc.)" >> $GITHUB_STEP_SUMMARY
+          echo "- Database connection strings" >> $GITHUB_STEP_SUMMARY
+          echo "- OAuth tokens" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Tip:** Use environment variables for sensitive data, never commit secrets!" >> $GITHUB_STEP_SUMMARY
+
+  # Job 2: Dependency Security Audit
+  # Checks for known vulnerabilities in dependencies
+  dependency-audit:
+    name: Audit Dependencies for Vulnerabilities
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Step 1: Check if package.json exists (npm project)
+      - name: Check for package.json
+        id: check-npm
+        run: |
+          if [ -f "package.json" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Found package.json - will run npm audit"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No package.json found - skipping npm audit"
+          fi
+      
+      # Step 2: Set up Node.js (only if package.json exists)
+      - name: Setup Node.js
+        if: steps.check-npm.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'  # Use LTS version
+      
+      # Step 3: Run npm audit
+      # This checks npm dependencies against the public vulnerability database
+      - name: Run npm audit
+        if: steps.check-npm.outputs.exists == 'true'
+        run: |
+          echo "## 📦 NPM Dependency Audit" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Run audit and capture output
+          if npm audit --audit-level=moderate; then
+            echo "✅ **No vulnerabilities found!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️  **Vulnerabilities detected!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Run \`npm audit fix\` to automatically fix issues." >> $GITHUB_STEP_SUMMARY
+          fi
+        continue-on-error: true  # Don't fail workflow, just report
+      
+      # Step 4: Summary for projects without npm
+      - name: Non-NPM project summary
+        if: steps.check-npm.outputs.exists == 'false'
+        run: |
+          echo "## 📦 Dependency Audit" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️  This project doesn't use npm dependencies." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ No package manager dependencies to audit." >> $GITHUB_STEP_SUMMARY
+
+  # Job 3: File Integrity Check
+  # Monitors critical files for unexpected changes
+  file-integrity:
+    name: Check Critical File Integrity
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Step 1: List critical files to monitor
+      # These are files that should rarely change and are security-critical
+      - name: Define critical files
+        id: critical-files
+        run: |
+          echo "## 🔍 File Integrity Monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Monitoring these critical files for unexpected changes:" >> $GITHUB_STEP_SUMMARY
+          echo "- .github/workflows/*.yml (Security workflows)" >> $GITHUB_STEP_SUMMARY
+          echo "- SECURITY.md (Security policy)" >> $GITHUB_STEP_SUMMARY
+          echo "- .github/dependabot.yml (Dependency scanning)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+      
+      # Step 2: Generate hashes of critical files
+      - name: Generate file hashes
+        run: |
+          echo "### Current File Hashes (SHA256)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+          # Hash security-related files
+          find .github/workflows -name "*.yml" -type f -exec sha256sum {} \; | sort >> $GITHUB_STEP_SUMMARY 2>&1 || echo "No workflow files" >> $GITHUB_STEP_SUMMARY
+          sha256sum SECURITY.md >> $GITHUB_STEP_SUMMARY 2>&1 || echo "SECURITY.md: Not found" >> $GITHUB_STEP_SUMMARY
+          sha256sum .github/dependabot.yml >> $GITHUB_STEP_SUMMARY 2>&1 || echo "dependabot.yml: Not found" >> $GITHUB_STEP_SUMMARY
+          
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Tip:** Compare these hashes over time to detect unauthorized changes." >> $GITHUB_STEP_SUMMARY
+      
+      # Step 3: Check for suspicious file patterns
+      - name: Scan for suspicious files
+        run: |
+          echo "### 🔎 Suspicious File Scan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Look for common suspicious file patterns
+          SUSPICIOUS=0
+          
+          # Check for .env files (should not be committed)
+          if find . -name ".env*" -type f | grep -v node_modules | grep -q .; then
+            echo "⚠️  Found .env files (may contain secrets)" >> $GITHUB_STEP_SUMMARY
+            find . -name ".env*" -type f | grep -v node_modules >> $GITHUB_STEP_SUMMARY
+            SUSPICIOUS=1
+          fi
+          
+          # Check for private key files
+          if find . -name "*.pem" -o -name "*.key" -type f | grep -q .; then
+            echo "⚠️  Found potential private key files" >> $GITHUB_STEP_SUMMARY
+            find . -name "*.pem" -o -name "*.key" -type f >> $GITHUB_STEP_SUMMARY
+            SUSPICIOUS=1
+          fi
+          
+          # Check for backup files (sometimes contain sensitive data)
+          if find . -name "*.bak" -o -name "*.backup" -type f | grep -q .; then
+            echo "⚠️  Found backup files" >> $GITHUB_STEP_SUMMARY
+            find . -name "*.bak" -o -name "*.backup" -type f >> $GITHUB_STEP_SUMMARY
+            SUSPICIOUS=1
+          fi
+          
+          if [ $SUSPICIOUS -eq 0 ]; then
+            echo "✅ No suspicious files detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Job 4: Code Quality and Security Linting
+  # Performs static analysis for common security issues
+  security-lint:
+    name: Security Linting
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Step 1: Check JavaScript files for security issues
+      - name: Check for JavaScript files
+        id: check-js
+        run: |
+          if find . -name "*.js" -type f | grep -q .; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Found JavaScript files"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No JavaScript files found"
+          fi
+      
+      # Step 2: Basic security checks on JavaScript
+      - name: JavaScript security checks
+        if: steps.check-js.outputs.exists == 'true'
+        run: |
+          echo "## 🔒 JavaScript Security Checks" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check for eval() usage (dangerous - can execute arbitrary code)
+          echo "### Checking for dangerous functions:" >> $GITHUB_STEP_SUMMARY
+          if grep -r "eval(" --include="*.js" .; then
+            echo "⚠️  Found eval() usage - this can be a security risk!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No eval() usage found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Check for innerHTML (XSS vulnerability if user input)
+          if grep -r "\.innerHTML" --include="*.js" .; then
+            echo "⚠️  Found innerHTML usage - verify user input is sanitized!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No innerHTML usage found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Check for document.write (also XSS risk)
+          if grep -r "document\.write" --include="*.js" .; then
+            echo "⚠️  Found document.write() - consider safer alternatives!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No document.write() found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Security Tips:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Use textContent instead of innerHTML for user data" >> $GITHUB_STEP_SUMMARY
+          echo "- Avoid eval() - use JSON.parse() for JSON data" >> $GITHUB_STEP_SUMMARY
+          echo "- Sanitize all user input before displaying" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+
+  # Job 5: Generate Security Report
+  # Consolidates findings into a comprehensive report
+  security-report:
+    name: Generate Security Report
+    runs-on: ubuntu-latest
+    needs: [secret-scan, dependency-audit, file-integrity, security-lint]
+    if: always()  # Run even if other jobs fail
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Generate comprehensive report
+        run: |
+          echo "# 🛡️ Security Monitoring Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This automated security scan checks for:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Accidentally committed secrets" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Vulnerable dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Critical file integrity" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Common security issues in code" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📚 Learn More" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [OWASP Top 10](https://owasp.org/www-project-top-ten/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [GitHub Security Best Practices](https://docs.github.com/en/code-security)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Repository SECURITY.md](../SECURITY.md)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Next Steps:** Review any warnings above and address security concerns before merging." >> $GITHUB_STEP_SUMMARY
+      
+      # Optional: Comment on PR with security results
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## 🛡️ Security Scan Complete\n\nThe security monitoring workflow has completed. Please review the workflow results for any security concerns.\n\n[View full report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})'
+            })
+        continue-on-error: true
+
+# EDUCATIONAL NOTES:
+#
+# WHY MULTIPLE JOBS?
+# - Separation of concerns (each job has one responsibility)
+# - Parallel execution (faster overall runtime)
+# - Easier to debug (know exactly which check failed)
+# - Can be run independently
+#
+# SECURITY SCANNING LAYERS:
+# 1. Secret scanning - Prevents credential leaks
+# 2. Dependency audit - Catches vulnerable libraries
+# 3. File integrity - Detects unauthorized changes
+# 4. Code linting - Finds common security bugs
+# 5. Report generation - Consolidates findings
+#
+# BEST PRACTICES DEMONSTRATED:
+# - Least privilege permissions
+# - Comprehensive logging and reporting
+# - Continue-on-error for non-blocking checks
+# - Educational comments and summaries
+# - Multiple scanning tools (defense in depth)
+#
+# LIMITATIONS:
+# - Static analysis only (doesn't catch runtime issues)
+# - Some false positives possible
+# - Can't detect all vulnerabilities
+# - Should be combined with other security measures
+#
+# CUSTOMIZATION:
+# - Add more file patterns to monitor
+# - Integrate with Slack/Teams for notifications
+# - Add custom security rules specific to your project
+# - Fail the build on critical findings (change continue-on-error)

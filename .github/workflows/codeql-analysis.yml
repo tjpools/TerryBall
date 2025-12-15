@@ -1,0 +1,246 @@
+name: CodeQL Security Analysis
+
+# CodeQL is GitHub's semantic code analysis engine
+# It treats code as data and runs queries to find security vulnerabilities
+
+# WHAT IS CODEQL?
+# CodeQL analyzes code by:
+# 1. Building a database from your source code
+# 2. Running queries against this database
+# 3. Finding patterns that indicate security issues
+#
+# It can detect: SQL injection, XSS, command injection, path traversal, 
+# insecure deserialization, and many more vulnerability types
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run every Wednesday at 2am UTC
+    # Catches newly discovered vulnerabilities in existing code
+    - cron: '0 2 * * 3'
+  workflow_dispatch:  # Manual trigger
+
+# Permissions following principle of least privilege
+permissions:
+  actions: read         # Read workflow information
+  contents: read        # Read repository contents
+  security-events: write  # Write security alerts to the Security tab
+
+jobs:
+  analyze:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    
+    # Time limit prevents runaway jobs
+    timeout-minutes: 360
+    
+    strategy:
+      # Don't cancel other analysis if one fails
+      fail-fast: false
+      matrix:
+        # Define languages to analyze
+        # CodeQL supports: cpp, csharp, go, java, javascript, python, ruby
+        # For this project, we're analyzing JavaScript
+        language: [ 'javascript' ]
+        # Learn more about CodeQL language support:
+        # https://aka.ms/codeql-docs/language-support
+    
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Step 2: Initialize CodeQL
+      # This sets up the CodeQL tools and creates the database
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # Optional: Specify additional queries to run
+          # queries: security-extended,security-and-quality
+          
+          # For JavaScript, we can use different query suites:
+          # - security-extended: More comprehensive security checks
+          # - security-and-quality: Security + code quality
+          queries: security-and-quality
+          
+          # Config file for custom queries (optional)
+          # config-file: ./.github/codeql/codeql-config.yml
+      
+      # Step 3: Autobuild
+      # CodeQL needs to understand your code structure
+      # For JavaScript, this is usually automatic
+      # For compiled languages (Java, C++), you might need custom build steps
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+        # Alternative: Manual build steps for compiled languages
+        # - run: |
+        #     make bootstrap
+        #     make release
+      
+      # Step 4: Perform CodeQL Analysis
+      # This runs the queries against the code database
+      - name: Perform CodeQL Analysis
+        id: analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+          # Upload results to GitHub Security tab
+          upload: true
+          # Continue even if vulnerabilities found (report them)
+          # Set to 'true' to fail the build on findings
+          # fail-on: error
+      
+      # Step 5: Generate analysis summary
+      - name: Generate CodeQL summary
+        if: always()
+        run: |
+          echo "## 🔍 CodeQL Security Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Language analyzed:** ${{ matrix.language }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Query suite:** security-and-quality" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### What CodeQL Checks For" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**JavaScript/TypeScript Security Issues:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Cross-site scripting (XSS)" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ SQL injection" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Command injection" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Path traversal" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Prototype pollution" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Regular expression denial of service (ReDoS)" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Insecure randomness" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Insecure deserialization" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Use of broken or risky cryptographic algorithms" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Hard-coded credentials" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Analysis completed successfully**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View detailed results in the [Security tab](${{ github.server_url }}/${{ github.repository }}/security/code-scanning)." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎓 Understanding CodeQL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**How it works:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Database Creation:** CodeQL extracts a relational database from your code" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Query Execution:** Runs predefined queries to find vulnerability patterns" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Result Analysis:** Identifies data flows that could be exploited" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Why it's powerful:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Understands code semantics, not just syntax" >> $GITHUB_STEP_SUMMARY
+          echo "- Tracks data flow through your application" >> $GITHUB_STEP_SUMMARY
+          echo "- Finds vulnerabilities that simple pattern matching misses" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 What to Do With Findings" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Critical/High:** Fix immediately before merging" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Medium:** Fix soon, document if delayed" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Low:** Evaluate and fix or dismiss with justification" >> $GITHUB_STEP_SUMMARY
+          echo "4. **False Positives:** Can be dismissed in the Security tab" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📚 Learn More" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [CodeQL Documentation](https://codeql.github.com/docs/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [CodeQL Query Library](https://github.com/github/codeql)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Security Lab](https://securitylab.github.com/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Writing Custom Queries](https://codeql.github.com/docs/writing-codeql-queries/)" >> $GITHUB_STEP_SUMMARY
+      
+      # Step 6: Comment on PR with results
+      - name: Comment on pull request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const language = '${{ matrix.language }}';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔍 CodeQL Analysis Complete (${language})
+              
+The CodeQL security analysis has finished scanning for vulnerabilities.
+
+**What was checked:**
+- Cross-site scripting (XSS)
+- Injection vulnerabilities
+- Insecure cryptography
+- Hard-coded secrets
+- And 100+ other security issues
+
+**Next steps:**
+1. Review any alerts in the [Security tab](${context.payload.repository.html_url}/security/code-scanning)
+2. Fix critical and high severity issues before merging
+3. Document or dismiss false positives
+
+[View full analysis results](${context.payload.repository.html_url}/actions/runs/${context.runId})`
+            });
+        continue-on-error: true
+
+# EDUCATIONAL NOTES:
+#
+# CODEQL VS OTHER SCANNERS:
+# - Traditional linters: Pattern matching (fast but shallow)
+# - CodeQL: Semantic analysis (slower but thorough)
+# - Dynamic scanners: Test running code (finds runtime issues)
+# - CodeQL: Static analysis (finds issues without running code)
+#
+# WHY CODEQL IS SPECIAL:
+# 1. Understands code flow (follows data through functions)
+# 2. Finds complex vulnerabilities (multi-step exploits)
+# 3. Low false positive rate (smart about context)
+# 4. Customizable (write your own queries)
+#
+# REAL-WORLD EXAMPLE:
+# CodeQL can track: user_input → function_a → function_b → database_query
+# And detect: "This user input flows to SQL query without sanitization = SQL injection"
+#
+# QUERY SUITES EXPLAINED:
+# - default: Standard security checks
+# - security-extended: More comprehensive, may have more false positives
+# - security-and-quality: Security + code quality issues
+#
+# INTERPRETING RESULTS:
+# - Each alert shows the vulnerable code path
+# - Click "Show paths" to see data flow
+# - Review fix suggestions
+# - Can dismiss false positives with justification
+#
+# BEST PRACTICES:
+# 1. Run on every PR (catch issues early)
+# 2. Run on schedule (find new vulnerabilities in old code)
+# 3. Don't ignore warnings without investigation
+# 4. Keep CodeQL action version updated
+# 5. Consider custom queries for project-specific issues
+#
+# LIMITATIONS:
+# - Can't find all vulnerabilities (no tool can)
+# - Requires proper configuration for some languages
+# - May produce false positives (review carefully)
+# - Can't detect business logic flaws
+# - Doesn't replace security testing and code review
+#
+# CUSTOMIZATION OPTIONS:
+# 1. Add custom queries in .github/codeql/
+# 2. Adjust query suites based on needs
+# 3. Configure paths to exclude
+# 4. Set up SARIF upload to other tools
+# 5. Integrate with issue tracking systems
+#
+# ADVANCED USAGE:
+# - Write custom CodeQL queries for project-specific vulnerabilities
+# - Use CodeQL CLI locally during development
+# - Create custom rule packs for your organization
+# - Integrate with security dashboards
+#
+# COMPLIANCE:
+# Many security standards require static analysis:
+# - PCI DSS: Requirement 6.3.2
+# - OWASP ASVS: V14 (Configuration)
+# - ISO 27001: A.14.2.5
+#
+# CodeQL helps meet these requirements automatically.

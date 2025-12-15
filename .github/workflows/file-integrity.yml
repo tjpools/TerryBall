@@ -1,0 +1,399 @@
+name: File Integrity Monitoring
+
+# This workflow monitors critical files for unauthorized changes
+# Educational Purpose: Learn about integrity monitoring and tamper detection
+
+# WHAT IS FILE INTEGRITY MONITORING (FIM)?
+# FIM tracks changes to important files by:
+# 1. Creating cryptographic hashes (fingerprints) of files
+# 2. Storing these hashes as a baseline
+# 3. Comparing future hashes against the baseline
+# 4. Alerting when hashes don't match (file was changed)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 1am UTC to detect drift
+    - cron: '0 1 * * *'
+  workflow_dispatch:  # Manual trigger
+
+# Minimal required permissions
+permissions:
+  contents: read
+  issues: write  # For creating alerts
+
+jobs:
+  # Job 1: Monitor Critical Files
+  monitor-integrity:
+    name: Check File Integrity
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Get full history to track changes
+          fetch-depth: 0
+      
+      # Step 1: Define critical files to monitor
+      # These are files that should rarely change and are security-important
+      - name: Define critical files
+        id: critical-files
+        run: |
+          # Create list of critical files to monitor
+          cat > critical_files.txt << 'EOF'
+          .github/workflows/security-monitoring.yml
+          .github/workflows/codeql-analysis.yml
+          .github/workflows/file-integrity.yml
+          .github/workflows/repo-monitor.yml
+          .github/dependabot.yml
+          SECURITY.md
+          .github/SECURITY_CHECKLIST.md
+          docs/BRANCH_PROTECTION_SETUP.md
+          docs/SIGNED_COMMITS_SETUP.md
+          EOF
+          
+          echo "Critical files to monitor:"
+          cat critical_files.txt
+          
+          echo "## 🔍 File Integrity Monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Monitoring these critical files:**" >> $GITHUB_STEP_SUMMARY
+          while IFS= read -r file; do
+            echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
+          done < critical_files.txt
+          echo "" >> $GITHUB_STEP_SUMMARY
+      
+      # Step 2: Generate current file hashes
+      - name: Generate file hashes
+        id: generate-hashes
+        run: |
+          echo "### 📊 Current File Hashes (SHA-256)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "SHA-256 is a cryptographic hash function that creates a unique 'fingerprint' for each file." >> $GITHUB_STEP_SUMMARY
+          echo "Even a single character change produces a completely different hash." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+          # Generate hashes for each critical file
+          while IFS= read -r file; do
+            if [ -f "$file" ]; then
+              sha256sum "$file" | tee -a current_hashes.txt >> $GITHUB_STEP_SUMMARY
+            else
+              echo "$file: FILE NOT FOUND" | tee -a current_hashes.txt >> $GITHUB_STEP_SUMMARY
+            fi
+          done < critical_files.txt
+          
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Upload hashes as artifact for comparison in future runs
+          echo "Hashes generated at $(date -u)" > hash_metadata.txt
+          echo "Commit: ${{ github.sha }}" >> hash_metadata.txt
+          echo "Actor: ${{ github.actor }}" >> hash_metadata.txt
+      
+      # Step 3: Check if baseline exists (from previous run)
+      - name: Download baseline hashes
+        id: download-baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: file-integrity-baseline
+          path: baseline/
+        continue-on-error: true  # First run won't have baseline
+      
+      # Step 4: Compare with baseline
+      - name: Compare with baseline
+        id: compare
+        if: steps.download-baseline.outcome == 'success'
+        run: |
+          echo "### 🔄 Comparing with Baseline" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "baseline/current_hashes.txt" ]; then
+            echo "Baseline found. Comparing..." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Compare current hashes with baseline
+            CHANGES=0
+            
+            while IFS= read -r current_line; do
+              current_hash=$(echo "$current_line" | awk '{print $1}')
+              current_file=$(echo "$current_line" | awk '{print $2}')
+              
+              # Skip if file not found
+              if [[ "$current_line" == *"FILE NOT FOUND"* ]]; then
+                continue
+              fi
+              
+              # Find corresponding baseline hash
+              baseline_line=$(grep "$current_file" baseline/current_hashes.txt || echo "")
+              
+              if [ -z "$baseline_line" ]; then
+                echo "🆕 **NEW FILE:** \`$current_file\`" >> $GITHUB_STEP_SUMMARY
+                CHANGES=$((CHANGES + 1))
+              else
+                baseline_hash=$(echo "$baseline_line" | awk '{print $1}')
+                
+                if [ "$current_hash" != "$baseline_hash" ]; then
+                  echo "⚠️  **CHANGED:** \`$current_file\`" >> $GITHUB_STEP_SUMMARY
+                  echo "   - Old: \`$baseline_hash\`" >> $GITHUB_STEP_SUMMARY
+                  echo "   - New: \`$current_hash\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  CHANGES=$((CHANGES + 1))
+                fi
+              fi
+            done < current_hashes.txt
+            
+            # Check for deleted files
+            while IFS= read -r baseline_line; do
+              if [[ "$baseline_line" == *"FILE NOT FOUND"* ]]; then
+                continue
+              fi
+              baseline_file=$(echo "$baseline_line" | awk '{print $2}')
+              if ! grep -q "$baseline_file" current_hashes.txt; then
+                echo "🗑️ **DELETED:** \`$baseline_file\`" >> $GITHUB_STEP_SUMMARY
+                CHANGES=$((CHANGES + 1))
+              fi
+            done < baseline/current_hashes.txt
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ $CHANGES -eq 0 ]; then
+              echo "✅ **No changes detected** - All critical files match baseline." >> $GITHUB_STEP_SUMMARY
+              echo "changes=false" >> $GITHUB_OUTPUT
+            else
+              echo "📝 **$CHANGES file(s) changed**" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**What this means:**" >> $GITHUB_STEP_SUMMARY
+              echo "- Changes might be legitimate updates" >> $GITHUB_STEP_SUMMARY
+              echo "- Review changes to ensure they're authorized" >> $GITHUB_STEP_SUMMARY
+              echo "- Check commit history for details" >> $GITHUB_STEP_SUMMARY
+              echo "changes=true" >> $GITHUB_OUTPUT
+              echo "count=$CHANGES" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "⚠️  Baseline file not found" >> $GITHUB_STEP_SUMMARY
+            echo "changes=unknown" >> $GITHUB_OUTPUT
+          fi
+      
+      # Step 5: First run - establish baseline
+      - name: Establish baseline
+        if: steps.download-baseline.outcome != 'success'
+        run: |
+          echo "### 🎯 Establishing Baseline" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This is the first run of file integrity monitoring." >> $GITHUB_STEP_SUMMARY
+          echo "Current file hashes will be saved as the baseline for future comparisons." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Baseline established successfully" >> $GITHUB_STEP_SUMMARY
+          echo "changes=false" >> $GITHUB_OUTPUT
+      
+      # Step 6: Save current hashes as new baseline
+      - name: Save baseline
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-integrity-baseline
+          path: |
+            current_hashes.txt
+            hash_metadata.txt
+          retention-days: 90  # Keep baseline for 90 days
+      
+      # Step 7: Check for suspicious patterns
+      - name: Detect suspicious patterns
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔎 Suspicious Pattern Detection" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          SUSPICIOUS=0
+          
+          # Check 1: Multiple workflow files changed at once
+          WORKFLOW_CHANGES=$(git diff HEAD~1 HEAD --name-only 2>/dev/null | grep -c "^.github/workflows/" || echo "0")
+          if [ "$WORKFLOW_CHANGES" -gt 2 ]; then
+            echo "⚠️  **Multiple workflow files changed** ($WORKFLOW_CHANGES files)" >> $GITHUB_STEP_SUMMARY
+            echo "   This could be normal during security updates, but verify the changes." >> $GITHUB_STEP_SUMMARY
+            SUSPICIOUS=1
+          fi
+          
+          # Check 2: Security documentation changed
+          if git diff HEAD~1 HEAD --name-only 2>/dev/null | grep -q "SECURITY.md"; then
+            echo "ℹ️  **Security policy updated**" >> $GITHUB_STEP_SUMMARY
+            echo "   Review changes to ensure security policy remains strong." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Check 3: Dependabot configuration changed
+          if git diff HEAD~1 HEAD --name-only 2>/dev/null | grep -q "dependabot.yml"; then
+            echo "ℹ️  **Dependabot configuration changed**" >> $GITHUB_STEP_SUMMARY
+            echo "   Verify that security scanning is still properly configured." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ $SUSPICIOUS -eq 0 ]; then
+            echo "✅ No suspicious patterns detected" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      # Step 8: Generate detailed report
+      - name: Generate integrity report
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 File Integrity Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Event:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Actor:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎓 Understanding File Integrity Monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**What is FIM?**" >> $GITHUB_STEP_SUMMARY
+          echo "File Integrity Monitoring detects unauthorized changes to critical files." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**How it works:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Hash critical files (creates unique fingerprints)" >> $GITHUB_STEP_SUMMARY
+          echo "2. Store hashes as baseline" >> $GITHUB_STEP_SUMMARY
+          echo "3. Periodically re-hash and compare" >> $GITHUB_STEP_SUMMARY
+          echo "4. Alert on mismatches" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Why SHA-256?**" >> $GITHUB_STEP_SUMMARY
+          echo "- Produces 256-bit (64 character) hash" >> $GITHUB_STEP_SUMMARY
+          echo "- Extremely unlikely to have collisions" >> $GITHUB_STEP_SUMMARY
+          echo "- Even 1 bit change creates completely different hash" >> $GITHUB_STEP_SUMMARY
+          echo "- Industry standard for integrity verification" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Real-world use cases:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Detect malware modifications to system files" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify backup integrity" >> $GITHUB_STEP_SUMMARY
+          echo "- Meet compliance requirements (PCI DSS 11.5)" >> $GITHUB_STEP_SUMMARY
+          echo "- Detect unauthorized configuration changes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 What to Do With Alerts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**If changes detected:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the git commit that made the changes" >> $GITHUB_STEP_SUMMARY
+          echo "2. Verify the change was authorized and necessary" >> $GITHUB_STEP_SUMMARY
+          echo "3. Ensure security isn't weakened" >> $GITHUB_STEP_SUMMARY
+          echo "4. Update documentation if needed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**If unauthorized changes found:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Investigate immediately (potential security incident)" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check who made the change and why" >> $GITHUB_STEP_SUMMARY
+          echo "3. Revert unauthorized changes" >> $GITHUB_STEP_SUMMARY
+          echo "4. Review access logs" >> $GITHUB_STEP_SUMMARY
+          echo "5. Strengthen access controls" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📚 Learn More" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [What is File Integrity Monitoring?](https://www.tripwire.com/state-of-security/what-is-file-integrity-monitoring-fim)" >> $GITHUB_STEP_SUMMARY
+          echo "- [PCI DSS Requirement 11.5](https://www.pcisecuritystandards.org/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [SHA-256 Explained](https://en.wikipedia.org/wiki/SHA-2)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Cryptographic Hash Functions](https://csrc.nist.gov/projects/hash-functions)" >> $GITHUB_STEP_SUMMARY
+      
+      # Step 9: Create issue on suspicious changes (optional)
+      - name: Create alert issue
+        if: steps.compare.outputs.changes == 'true' && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changes = '${{ steps.compare.outputs.count }}';
+            const commit = '${{ github.sha }}';
+            const actor = '${{ github.actor }}';
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔍 File Integrity Alert: Critical Files Changed',
+              body: `## File Integrity Monitoring Alert
+              
+**Summary:** ${changes} critical file(s) have changed since the last baseline.
+
+**Details:**
+- **Detected by:** Scheduled integrity scan
+- **Commit:** ${commit}
+- **Actor:** @${actor}
+- **Timestamp:** ${new Date().toISOString()}
+
+**Action Required:**
+1. Review the workflow run: [View Run](${context.payload.repository.html_url}/actions/runs/${context.runId})
+2. Check the git commit for details
+3. Verify changes are authorized
+4. Update security documentation if needed
+
+**Affected files:** See workflow run summary for details.
+
+This is an automated alert. If these changes are expected, you can close this issue.`,
+              labels: ['security', 'file-integrity', 'automated-alert']
+            });
+        continue-on-error: true
+
+# EDUCATIONAL NOTES:
+#
+# WHAT IS FILE INTEGRITY MONITORING (FIM)?
+# FIM is a security control that detects unauthorized changes to critical files.
+# It's like having a burglar alarm for your code.
+#
+# HOW CRYPTOGRAPHIC HASHING WORKS:
+# - Input: "Hello World" → SHA-256 → Output: "a591a6d40bf420404a011733cfb7b190..."
+# - Change 1 character: "Hello World!" → Completely different hash
+# - Same input always produces same hash
+# - Practically impossible to create two inputs with same hash (collision)
+# - Cannot reverse hash to get original input (one-way function)
+#
+# WHY MONITOR THESE SPECIFIC FILES?
+# - Workflows: Control CI/CD and security scanning
+# - Security.md: Defines security policies
+# - Dependabot.yml: Controls dependency scanning
+# - Documentation: Security setup instructions
+#
+# If attacker modifies these, they could:
+# - Disable security scans
+# - Weaken branch protection
+# - Hide malicious code
+# - Create backdoors
+#
+# REAL-WORLD ATTACK SCENARIO:
+# 1. Attacker gains access to repository
+# 2. Modifies security-monitoring.yml to disable secret scanning
+# 3. Commits malicious code with embedded credentials
+# 4. FIM detects workflow file change
+# 5. Security team investigates and catches the attack
+#
+# LIMITATIONS:
+# - Only detects changes after they happen (not preventive)
+# - Legitimate changes also trigger alerts
+# - Baseline must be trusted (bootstrap problem)
+# - Doesn't detect logic bugs, only file changes
+#
+# ADVANCED CONCEPTS:
+# - Hash chaining: Hash of hashes for efficient verification
+# - Merkle trees: Used in Git, blockchain for integrity
+# - Signed hashes: GPG sign the baseline for extra security
+# - Real-time FIM: Monitor file system events (inotify, FSEvents)
+#
+# COMPLIANCE REQUIREMENTS:
+# Many standards require FIM:
+# - PCI DSS 11.5: Deploy file-integrity monitoring
+# - HIPAA: Monitor for unauthorized access
+# - SOC 2: Change management controls
+# - ISO 27001: A.12.4.1 Event logging
+#
+# ENHANCEMENTS:
+# - Store baselines in secure external location
+# - Use multiple hash algorithms (defense in depth)
+# - Track file permissions and ownership changes
+# - Monitor file access times
+# - Alert based on severity and frequency
+# - Integration with SIEM systems
+#
+# BEST PRACTICES:
+# 1. Monitor only critical files (reduces noise)
+# 2. Update baseline after legitimate changes
+# 3. Review all alerts (don't ignore)
+# 4. Maintain baseline integrity (protect the protector)
+# 5. Test FIM regularly (simulate changes)
+# 6. Document investigation procedures
