@@ -2,8 +2,38 @@
 ## A Deep Dive into Combinatorial Complexity and the Illusion of Control
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Security: Hardened](https://img.shields.io/badge/Security-Hardened-green.svg)](SECURITY.md)
+[![CodeQL](https://github.com/tjpools/TerryBall/workflows/CodeQL%20Security%20Analysis/badge.svg)](https://github.com/tjpools/TerryBall/actions/workflows/codeql-analysis.yml)
+[![Security Monitoring](https://github.com/tjpools/TerryBall/workflows/Security%20Monitoring/badge.svg)](https://github.com/tjpools/TerryBall/actions/workflows/security-monitoring.yml)
 
 > *"The numbers are constructed, not arbitrary. The interface is theater, not substance. The odds are mathematical, not negotiable."*
+
+## 🔒 Security Status
+
+This repository implements **comprehensive security hardening** as a learning project for security and networking concepts. All security measures are thoroughly documented with educational content.
+
+**Security Features:**
+- 🛡️ [**CodeQL Analysis**](.github/workflows/codeql-analysis.yml) - Automated vulnerability scanning
+- 🔍 [**Security Monitoring**](.github/workflows/security-monitoring.yml) - Secret scanning and dependency auditing  
+- 📊 [**File Integrity Monitoring**](.github/workflows/file-integrity.yml) - Tamper detection for critical files
+- 👁️ [**Repository Monitor**](.github/workflows/repo-monitor.yml) - Audit trail for repository events
+- 🤖 [**Dependabot**](.github/dependabot.yml) - Automated dependency security updates
+- 📝 [**Branch Protection**](docs/BRANCH_PROTECTION_SETUP.md) - Comprehensive protection guide
+- ✍️ [**Signed Commits**](docs/SIGNED_COMMITS_SETUP.md) - GPG commit verification guide
+
+**Documentation:**
+- 📖 [**Security Policy**](SECURITY.md) - Complete security documentation
+- ✅ [**Security Checklist**](.github/SECURITY_CHECKLIST.md) - Setup and maintenance tasks
+
+**Why Security for a Lottery Simulator?**  
+This is a **learning project** designed to teach security concepts through practical implementation. While the game itself is simple, the security infrastructure demonstrates real-world enterprise security practices. Perfect for understanding how to:
+- Implement defense-in-depth security
+- Set up automated security scanning
+- Monitor and audit repository activity
+- Prevent unauthorized code changes
+- Respond to security incidents
+
+👉 **Learn more:** Read our [Security Policy](SECURITY.md) to understand each security feature in detail.
 
 ## 🎯 What Is This?
 
@@ -248,6 +278,105 @@ Most lottery simulators show odds. **TerryBall teaches why those odds matter** b
 4. **Cost analysis** - Real economic implications
 5. **Beautiful design** - Engagement through aesthetic
 
+## 🛡️ Security & Infrastructure
+
+### Comprehensive Security Implementation
+
+TerryBall serves as a **learning platform for security and networking concepts**. While the game is simple, the security infrastructure demonstrates enterprise-grade practices.
+
+#### Automated Security Scanning
+
+**CodeQL Analysis** - Semantic code analysis that detects:
+- Cross-site scripting (XSS) vulnerabilities
+- Injection attacks (SQL, command, etc.)
+- Insecure cryptography usage
+- Hard-coded secrets
+- 100+ other security patterns
+
+**Security Monitoring** - Multi-layered scanning:
+- Secret detection (API keys, passwords, tokens)
+- Dependency vulnerability scanning
+- Suspicious file pattern detection
+- Code quality and security linting
+
+**File Integrity Monitoring** - Tamper detection:
+- SHA-256 cryptographic hashing of critical files
+- Baseline comparison on every push
+- Alerts on unauthorized changes
+- Compliance with PCI DSS requirement 11.5
+
+**Repository Activity Monitor** - Audit trail logging:
+- Branch creation/deletion events
+- Tag and release activities  
+- Push events to main branch
+- Security-relevant repository changes
+
+#### Dependency Management
+
+**Dependabot Configuration:**
+- Automated security updates for npm packages
+- GitHub Actions workflow security updates
+- Weekly vulnerability scans
+- Intelligent PR grouping to reduce noise
+
+#### Security Documentation
+
+Comprehensive guides for learning and implementation:
+
+📖 **[SECURITY.md](SECURITY.md)** - Complete security policy
+- Detailed explanation of each security feature
+- Vulnerability reporting procedures
+- Security best practices
+- Educational resources and learning paths
+
+📋 **[Security Checklist](.github/SECURITY_CHECKLIST.md)** - Interactive checklist
+- Initial setup tasks (2-3 hours)
+- Weekly maintenance (15 minutes)
+- Monthly audits (30 minutes)
+- Quarterly reviews (1-2 hours)
+
+🌿 **[Branch Protection Guide](docs/BRANCH_PROTECTION_SETUP.md)** - Step-by-step setup
+- Why branch protection matters (security perspective)
+- Detailed configuration instructions
+- Real-world attack scenarios prevented
+- Testing and troubleshooting
+
+✍️ **[Signed Commits Guide](docs/SIGNED_COMMITS_SETUP.md)** - GPG signing setup
+- Why commit signing matters (prevent impersonation)
+- Complete GPG setup instructions
+- Verification procedures
+- Troubleshooting common issues
+
+#### Learning Objectives
+
+This security implementation teaches:
+
+1. **Defense in Depth** - Multiple overlapping security layers
+2. **Automated Security** - CI/CD integrated scanning
+3. **Audit Trails** - Comprehensive activity logging
+4. **Compliance** - Meeting industry standards (PCI DSS, SOC 2, ISO 27001)
+5. **Incident Response** - Detection, investigation, remediation
+6. **Security Operations** - Monitoring, alerting, maintenance
+
+#### Security Metrics
+
+The implementation demonstrates tracking:
+- Mean time to patch vulnerabilities
+- Security scan coverage
+- False positive rates
+- Compliance with security policies
+- Incident response times
+
+### Getting Started with Security
+
+1. **Read the [Security Policy](SECURITY.md)** - Understand the overall architecture
+2. **Review workflows** in `.github/workflows/` - See automation in action
+3. **Follow the [Security Checklist](.github/SECURITY_CHECKLIST.md)** - Implement step-by-step
+4. **Set up [Branch Protection](docs/BRANCH_PROTECTION_SETUP.md)** - Secure your workflow
+5. **Enable [Signed Commits](docs/SIGNED_COMMITS_SETUP.md)** - Verify authenticity
+
+**Educational Note:** This isn't just about securing a simple game—it's about learning security principles that apply to any software project, from startups to Fortune 500 companies.
+
 ## 🤝 Contributing
 
 This is an educational project. Contributions welcome for:
@@ -256,6 +385,9 @@ This is an educational project. Contributions welcome for:
 - Translations
 - Educational materials
 - Bug fixes
+- Security improvements and feedback
+
+**Security contributions:** Please follow our [Security Policy](SECURITY.md) for reporting vulnerabilities.
 
 ## 📄 License
 
