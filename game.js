@@ -444,6 +444,9 @@ function loadStats() {
         // Handle old format or new format
         if (loaded.classic && loaded.terrybucks) {
             stats = loaded;
+            // Ensure new fields exist (for migration from older TerryBucks version)
+            if (!stats.terrybucks.totalPayouts) stats.terrybucks.totalPayouts = 0;
+            if (!stats.terrybucks.partialWins) stats.terrybucks.partialWins = 0;
         } else {
             // Old format - migrate to classic mode
             stats.classic = {
@@ -496,13 +499,14 @@ function updateTerryBucksDisplay() {
     const warningDisplay = document.getElementById('terryBucksWarning');
     
     if (debtDisplay) {
-        debtDisplay.textContent = `$${tbStats.debt.toFixed(2)}`;
+        debtDisplay.textContent = `$${(tbStats.debt || 0).toFixed(2)}`;
     }
     
     if (netDisplay) {
         // Net = Total payouts - Total spent
         const totalSpent = tbStats.gamesPlayed * 2;
-        const netValue = tbStats.totalPayouts - totalSpent;
+        const totalPayouts = tbStats.totalPayouts || 0;
+        const netValue = totalPayouts - totalSpent;
         netDisplay.textContent = `$${netValue.toFixed(2)}`;
         netDisplay.className = netValue >= 0 ? 'terrybucks-positive' : 'terrybucks-negative';
     }
@@ -511,18 +515,20 @@ function updateTerryBucksDisplay() {
     if (warningDisplay) {
         let warning = '';
         const totalSpent = tbStats.gamesPlayed * 2;
-        const winRate = tbStats.partialWins > 0 ? ((tbStats.partialWins / tbStats.gamesPlayed) * 100).toFixed(1) : 0;
+        const partialWins = tbStats.partialWins || 0;
+        const totalPayouts = tbStats.totalPayouts || 0;
+        const winRate = partialWins > 0 ? ((partialWins / tbStats.gamesPlayed) * 100).toFixed(1) : 0;
         
         if (tbStats.debt >= 10000) {
-            warning = `⚠️ <strong>Deep in the hole!</strong> Debt: $${tbStats.debt.toFixed(2)}. You've "won" ${tbStats.partialWins} times (${winRate}% win rate!) but still owe money. See the trap?`;
+            warning = `⚠️ <strong>Deep in the hole!</strong> Debt: $${tbStats.debt.toFixed(2)}. You've "won" ${partialWins} times (${winRate}% win rate!) but still owe money. See the trap?`;
         } else if (tbStats.debt >= 1000) {
-            warning = `⚠️ <strong>The Loop Tightens:</strong> $${tbStats.debt.toFixed(2)} debt despite ${tbStats.partialWins} "wins". Each payout feels like progress... but check the math.`;
+            warning = `⚠️ <strong>The Loop Tightens:</strong> $${tbStats.debt.toFixed(2)} debt despite ${partialWins} "wins". Each payout feels like progress... but check the math.`;
         } else if (tbStats.debt >= 100) {
-            warning = `💭 <strong>Winning but losing:</strong> You've won ${tbStats.partialWins}x, collected $${tbStats.totalPayouts.toFixed(2)}, but owe $${tbStats.debt.toFixed(2)}. The house edge is subtle.`;
-        } else if (tbStats.partialWins > 0 && tbStats.debt > 0) {
-            warning = `🎰 <strong>Feeling lucky?</strong> ${tbStats.partialWins} payouts totaling $${tbStats.totalPayouts.toFixed(2)}, but you're still $${tbStats.debt.toFixed(2)} in debt. That's the magic!`;
+            warning = `💭 <strong>Winning but losing:</strong> You've won ${partialWins}x, collected $${totalPayouts.toFixed(2)}, but owe $${tbStats.debt.toFixed(2)}. The house edge is subtle.`;
+        } else if (partialWins > 0 && tbStats.debt > 0) {
+            warning = `🎰 <strong>Feeling lucky?</strong> ${partialWins} payouts totaling $${totalPayouts.toFixed(2)}, but you're still $${tbStats.debt.toFixed(2)} in debt. That's the magic!`;
         } else if (tbStats.gamesPlayed > 0) {
-            warning = `💰 Current debt: $${tbStats.debt.toFixed(2)}. The trap is subtle at first... wait for the "wins".`;
+            warning = `💰 Current debt: $${(tbStats.debt || 0).toFixed(2)}. The trap is subtle at first... wait for the "wins".`;
         }
         
         warningDisplay.innerHTML = warning;
