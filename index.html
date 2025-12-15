@@ -14,6 +14,15 @@
             <p class="odds">Odds of Winning: 1 in 285,012</p>
         </header>
 
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="classic">📊 Classic Mode</button>
+            <button class="mode-btn" data-mode="terrybucks">💰 TerryBucks Mode</button>
+        </div>
+        <div class="mode-description" id="modeDescription">
+            <p>🎯 <strong>Classic Mode:</strong> Play the odds. Experience pure probability. Track your results.</p>
+        </div>
+
         <div class="game-area">
             <!-- Main Numbers Selection -->
             <section class="number-selection">
@@ -143,7 +152,23 @@
 
             <!-- Statistics -->
             <section class="stats">
-                <h3>Game Statistics</h3>
+                <h3 id="statsTitle">📊 Game Statistics</h3>
+                
+                <!-- TerryBucks specific display -->
+                <div id="terryBucksPanel" class="terrybucks-panel" style="display: none;">
+                    <div class="terrybucks-grid">
+                        <div class="terrybucks-item debt">
+                            <span class="terrybucks-label">💳 Total Debt:</span>
+                            <span class="terrybucks-value" id="terryBucksDebt">$0</span>
+                        </div>
+                        <div class="terrybucks-item net">
+                            <span class="terrybucks-label">💰 Net Position:</span>
+                            <span class="terrybucks-value" id="terryBucksNet">$0</span>
+                        </div>
+                    </div>
+                    <div class="terrybucks-warning" id="terryBucksWarning"></div>
+                </div>
+                
                 <div class="stats-grid">
                     <div class="stat-item">
                         <span class="stat-label">Games Played:</span>
@@ -157,7 +182,20 @@
                         <span class="stat-label">Win Rate:</span>
                         <span class="stat-value" id="winRate">0%</span>
                     </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Expected Wins:</span>
+                        <span class="stat-value" id="expectedWins">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Money Spent ($2/play):</span>
+                        <span class="stat-value" id="moneySpent">$0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Deviation from Expected:</span>
+                        <span class="stat-value" id="deviation">0</span>
+                    </div>
                 </div>
+                <button id="resetStats" class="btn btn-secondary" style="margin-top: 15px;">Reset Statistics for Current Mode</button>
             </section>
         </div>
     </div>

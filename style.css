@@ -40,6 +40,115 @@ header h1 {
     opacity: 0.9;
 }
 
+/* Mode Toggle */
+.mode-toggle {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.mode-btn {
+    padding: 12px 30px;
+    border: 2px solid white;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 25px;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.mode-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.mode-btn.active {
+    background: white;
+    color: #667eea;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+}
+
+.mode-description {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.mode-description p {
+    margin: 0;
+    color: #333;
+    font-size: 1.05em;
+    line-height: 1.5;
+}
+
+/* TerryBucks Panel */
+.terrybucks-panel {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    color: white;
+    box-shadow: 0 5px 20px rgba(238, 90, 111, 0.3);
+}
+
+.terrybucks-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.terrybucks-item {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 15px;
+    border-radius: 10px;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.terrybucks-label {
+    display: block;
+    font-size: 0.9em;
+    opacity: 0.9;
+    margin-bottom: 5px;
+}
+
+.terrybucks-value {
+    display: block;
+    font-size: 1.8em;
+    font-weight: bold;
+}
+
+.terrybucks-positive {
+    color: #4ade80 !important;
+}
+
+.terrybucks-negative {
+    color: #fecaca !important;
+}
+
+.terrybucks-warning {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 4px solid #fbbf24;
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+.terrybucks-warning strong {
+    color: #fbbf24;
+}
+
 .game-area {
     background: white;
     border-radius: 20px;

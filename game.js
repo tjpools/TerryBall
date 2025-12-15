@@ -3,9 +3,20 @@ let selectedNumbers = [];
 let selectedPower = null;
 let winningNumbers = [];
 let winningPower = null;
+let currentMode = 'classic'; // 'classic' or 'terrybucks'
+
+// Separate stats for each mode
 let stats = {
-    gamesPlayed: 0,
-    wins: 0
+    classic: {
+        gamesPlayed: 0,
+        wins: 0
+    },
+    terrybucks: {
+        gamesPlayed: 0,
+        wins: 0,
+        debt: 0,  // Total TerryBucks owed
+        netWinnings: 0  // Total winnings minus debt
+    }
 };
 
 // Initialize the game
@@ -31,6 +42,11 @@ function createNumberButtons() {
 
 // Setup event listeners
 function setupEventListeners() {
+    // Mode toggle buttons
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchMode(btn.dataset.mode));
+    });
+
     // Power number buttons
     document.querySelectorAll('.power-btn').forEach(btn => {
         btn.addEventListener('click', () => selectPower(parseInt(btn.dataset.power)));
@@ -199,6 +215,41 @@ function checkWin() {
     return matchingNumbers === 5 && matchingPower;
 }
 
+// Switch game mode
+function switchMode(mode) {
+    currentMode = mode;
+    
+    // Update button states
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        if (btn.dataset.mode === mode) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    
+    // Update mode description
+    const modeDesc = document.getElementById('modeDescription');
+    if (mode === 'classic') {
+        modeDesc.innerHTML = '<p>🎯 <strong>Classic Mode:</strong> Play the odds. Experience pure probability. Track your results.</p>';
+    } else {
+        modeDesc.innerHTML = '<p>💰 <strong>TerryBucks Mode:</strong> Every play costs $2, but you "borrow" it as TerryBucks debt. Win $100,000, but you must pay back your debt first. Can you escape the leverage trap?</p>';
+    }
+    
+    // Show/hide TerryBucks panel
+    const terryBucksPanel = document.getElementById('terryBucksPanel');
+    if (terryBucksPanel) {
+        terryBucksPanel.style.display = mode === 'terrybucks' ? 'block' : 'none';
+    }
+    
+    // Update stats display
+    updateStatsDisplay();
+    
+    // Clear selection for fresh start
+    clearSelection();
+    document.getElementById('results').style.display = 'none';
+}
+
 // Play the game
 function playGame() {
     // Validate selection
@@ -218,11 +269,27 @@ function playGame() {
     // Check for win
     const isWinner = checkWin();
     
-    // Update stats
-    stats.gamesPlayed++;
-    if (isWinner) {
-        stats.wins++;
+    // Update stats based on mode
+    if (currentMode === 'classic') {
+        stats.classic.gamesPlayed++;
+        if (isWinner) {
+            stats.classic.wins++;
+        }
+    } else {
+        // TerryBucks mode
+        stats.terrybucks.gamesPlayed++;
+        stats.terrybucks.debt += 2; // Add $2 debt per play
+        
+        if (isWinner) {
+            stats.terrybucks.wins++;
+            // Win $100,000 but must pay back debt
+            const winAmount = 100000;
+            const debtBefore = stats.terrybucks.debt;
+            stats.terrybucks.debt = Math.max(0, stats.terrybucks.debt - winAmount);
+            stats.terrybucks.netWinnings += (winAmount - debtBefore);
+        }
     }
+    
     saveStats();
     updateStatsDisplay();
     
@@ -300,35 +367,88 @@ function saveStats() {
 function loadStats() {
     const saved = localStorage.getItem('powerballStats');
     if (saved) {
-        stats = JSON.parse(saved);
+        const loaded = JSON.parse(saved);
+        // Handle old format or new format
+        if (loaded.classic && loaded.terrybucks) {
+            stats = loaded;
+        } else {
+            // Old format - migrate to classic mode
+            stats.classic = {
+                gamesPlayed: loaded.gamesPlayed || 0,
+                wins: loaded.wins || 0
+            };
+        }
     }
 }
 
 // Update stats display
 function updateStatsDisplay() {
-    document.getElementById('gamesPlayed').textContent = stats.gamesPlayed;
-    document.getElementById('wins').textContent = stats.wins;
+    const modeStats = currentMode === 'classic' ? stats.classic : stats.terrybucks;
     
-    const winRate = stats.gamesPlayed > 0 
-        ? ((stats.wins / stats.gamesPlayed) * 100).toFixed(4) 
+    document.getElementById('gamesPlayed').textContent = modeStats.gamesPlayed;
+    document.getElementById('wins').textContent = modeStats.wins;
+    
+    const winRate = modeStats.gamesPlayed > 0 
+        ? ((modeStats.wins / modeStats.gamesPlayed) * 100).toFixed(4) 
         : 0;
     document.getElementById('winRate').textContent = winRate + '%';
 
     // Calculate expected wins
-    const expectedWins = stats.gamesPlayed > 0 
-        ? (stats.gamesPlayed / 285012).toFixed(4)
+    const expectedWins = modeStats.gamesPlayed > 0 
+        ? (modeStats.gamesPlayed / 285012).toFixed(4)
         : 0;
     document.getElementById('expectedWins').textContent = expectedWins;
 
-    // Calculate money spent
-    const moneySpent = stats.gamesPlayed * 2;
+    // Calculate money spent (Classic) or debt (TerryBucks)
+    const moneySpent = modeStats.gamesPlayed * 2;
     document.getElementById('moneySpent').textContent = `$${moneySpent.toLocaleString()}`;
 
     // Calculate deviation
-    const deviation = stats.gamesPlayed > 0
-        ? (stats.wins - parseFloat(expectedWins)).toFixed(4)
+    const deviation = modeStats.gamesPlayed > 0
+        ? (modeStats.wins - parseFloat(expectedWins)).toFixed(4)
         : 0;
     document.getElementById('deviation').textContent = deviation;
+    
+    // Update TerryBucks-specific display if in that mode
+    if (currentMode === 'terrybucks') {
+        updateTerryBucksDisplay();
+    }
+}
+
+// Update TerryBucks specific display
+function updateTerryBucksDisplay() {
+    const tbStats = stats.terrybucks;
+    const debtDisplay = document.getElementById('terryBucksDebt');
+    const netDisplay = document.getElementById('terryBucksNet');
+    const warningDisplay = document.getElementById('terryBucksWarning');
+    
+    if (debtDisplay) {
+        debtDisplay.textContent = `$${tbStats.debt.toLocaleString()}`;
+    }
+    
+    if (netDisplay) {
+        const netValue = (tbStats.wins * 100000) - tbStats.debt;
+        netDisplay.textContent = `$${netValue.toLocaleString()}`;
+        netDisplay.className = netValue >= 0 ? 'terrybucks-positive' : 'terrybucks-negative';
+    }
+    
+    // Show warnings at different thresholds
+    if (warningDisplay) {
+        let warning = '';
+        const playsToBreakEven = Math.ceil(tbStats.debt / 100000);
+        
+        if (tbStats.debt >= 10000) {
+            warning = `⚠️ <strong>Deep in debt!</strong> You owe $${tbStats.debt.toLocaleString()} TerryBucks. You need ${playsToBreakEven} wins just to break even. The loop tightens...`;
+        } else if (tbStats.debt >= 1000) {
+            warning = `⚠️ <strong>Debt accumulating:</strong> $${tbStats.debt.toLocaleString()} TerryBucks owed. Still trying to escape? That's the strange loop.`;
+        } else if (tbStats.debt >= 100) {
+            warning = `💭 You've borrowed $${tbStats.debt.toLocaleString()} TerryBucks. Each play digs deeper. Notice the pattern?`;
+        } else if (tbStats.gamesPlayed > 0) {
+            warning = `💰 Current debt: $${tbStats.debt.toLocaleString()} TerryBucks. The trap is subtle at first...`;
+        }
+        
+        warningDisplay.innerHTML = warning;
+    }
 }
 
 // Run simulation
@@ -418,8 +538,13 @@ function displaySimulationResults(numGames, wins) {
 
 // Reset all statistics
 function resetAllStats() {
-    if (confirm('Are you sure you want to reset all statistics? This cannot be undone.')) {
-        stats = { gamesPlayed: 0, wins: 0 };
+    const modeName = currentMode === 'classic' ? 'Classic Mode' : 'TerryBucks Mode';
+    if (confirm(`Are you sure you want to reset ${modeName} statistics? This cannot be undone.`)) {
+        if (currentMode === 'classic') {
+            stats.classic = { gamesPlayed: 0, wins: 0 };
+        } else {
+            stats.terrybucks = { gamesPlayed: 0, wins: 0, debt: 0, netWinnings: 0 };
+        }
         saveStats();
         updateStatsDisplay();
         
