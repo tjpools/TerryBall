@@ -157,27 +157,29 @@ jobs:
         with:
           script: |
             const language = '${{ matrix.language }}';
+            const body = `## 🔍 CodeQL Analysis Complete (${language})
+            
+            The CodeQL security analysis has finished scanning for vulnerabilities.
+            
+            **What was checked:**
+            - Cross-site scripting (XSS)
+            - Injection vulnerabilities
+            - Insecure cryptography
+            - Hard-coded secrets
+            - And 100+ other security issues
+            
+            **Next steps:**
+            1. Review any alerts in the [Security tab](${context.payload.repository.html_url}/security/code-scanning)
+            2. Fix critical and high severity issues before merging
+            3. Document or dismiss false positives
+            
+            [View full analysis results](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 🔍 CodeQL Analysis Complete (${language})
-              
-The CodeQL security analysis has finished scanning for vulnerabilities.
-
-**What was checked:**
-- Cross-site scripting (XSS)
-- Injection vulnerabilities
-- Insecure cryptography
-- Hard-coded secrets
-- And 100+ other security issues
-
-**Next steps:**
-1. Review any alerts in the [Security tab](${context.payload.repository.html_url}/security/code-scanning)
-2. Fix critical and high severity issues before merging
-3. Document or dismiss false positives
-
-[View full analysis results](${context.payload.repository.html_url}/actions/runs/${context.runId})`
+              body: body
             });
         continue-on-error: true
 

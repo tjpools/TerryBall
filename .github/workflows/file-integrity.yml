@@ -304,29 +304,31 @@ jobs:
             const commit = '${{ github.sha }}';
             const actor = '${{ github.actor }}';
             
+            const body = `## File Integrity Monitoring Alert
+            
+            **Summary:** ${changes} critical file(s) have changed since the last baseline.
+            
+            **Details:**
+            - **Detected by:** Scheduled integrity scan
+            - **Commit:** ${commit}
+            - **Actor:** @${actor}
+            - **Timestamp:** ${new Date().toISOString()}
+            
+            **Action Required:**
+            1. Review the workflow run: [View Run](${context.payload.repository.html_url}/actions/runs/${context.runId})
+            2. Check the git commit for details
+            3. Verify changes are authorized
+            4. Update security documentation if needed
+            
+            **Affected files:** See workflow run summary for details.
+            
+            This is an automated alert. If these changes are expected, you can close this issue.`;
+            
             github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: '🔍 File Integrity Alert: Critical Files Changed',
-              body: `## File Integrity Monitoring Alert
-              
-**Summary:** ${changes} critical file(s) have changed since the last baseline.
-
-**Details:**
-- **Detected by:** Scheduled integrity scan
-- **Commit:** ${commit}
-- **Actor:** @${actor}
-- **Timestamp:** ${new Date().toISOString()}
-
-**Action Required:**
-1. Review the workflow run: [View Run](${context.payload.repository.html_url}/actions/runs/${context.runId})
-2. Check the git commit for details
-3. Verify changes are authorized
-4. Update security documentation if needed
-
-**Affected files:** See workflow run summary for details.
-
-This is an automated alert. If these changes are expected, you can close this issue.`,
+              body: body,
               labels: ['security', 'file-integrity', 'automated-alert']
             });
         continue-on-error: true
