@@ -372,16 +372,38 @@ h3 {
     border-radius: 10px;
     font-size: 1.5em;
     font-weight: bold;
+    line-height: 1.4;
 }
 
 .result-message.winner {
     background: #51cf66;
     color: white;
+    animation: jackpotPulse 1s ease-in-out infinite;
+}
+
+.result-message.partial-win {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    color: white;
+    border: 3px solid #fcd34d;
+    box-shadow: 0 5px 20px rgba(251, 191, 36, 0.4);
 }
 
 .result-message.loser {
     background: #ff6b6b;
     color: white;
+    opacity: 0.9;
+}
+
+.result-message small {
+    display: block;
+    font-size: 0.6em;
+    margin-top: 8px;
+    opacity: 0.9;
+}
+
+@keyframes jackpotPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 5px 20px rgba(81, 207, 102, 0.4); }
+    50% { transform: scale(1.02); box-shadow: 0 8px 30px rgba(81, 207, 102, 0.6); }
 }
 
 /* Statistics */
