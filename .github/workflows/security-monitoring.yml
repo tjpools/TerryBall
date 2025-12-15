@@ -16,6 +16,7 @@ on:
     branches: [ main ]
   schedule:
     # Run every Monday at 3am UTC (low traffic time)
+    # Note: GitHub Actions uses UTC timezone regardless of your location
     - cron: '0 3 * * 1'
   workflow_dispatch:  # Allows manual triggering from Actions tab
 

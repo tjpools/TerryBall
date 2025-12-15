@@ -160,7 +160,7 @@ gpg --full-generate-key
 4. **Confirm:** Type `y`
 5. **Name:** Enter your real name (must match GitHub)
 6. **Email:** Enter your GitHub email address
-   - **Important:** Must be verified on GitHub
+   - **Important:** Must be verified on GitHub (added to your account and confirmed via email)
    - Must match commits
 7. **Comment:** Optional (e.g., "GitHub Signing Key")
 8. **Confirm:** Type `O` (okay)

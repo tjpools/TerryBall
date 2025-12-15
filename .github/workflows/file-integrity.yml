@@ -91,7 +91,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Upload hashes as artifact for comparison in future runs
-          echo "Hashes generated at $(date -u)" > hash_metadata.txt
+          echo "Hashes generated at $(date -u -Iseconds)" > hash_metadata.txt
           echo "Commit: ${{ github.sha }}" >> hash_metadata.txt
           echo "Actor: ${{ github.actor }}" >> hash_metadata.txt
       

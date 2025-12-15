@@ -34,8 +34,8 @@ jobs:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
     
-    # Time limit prevents runaway jobs
-    timeout-minutes: 360
+    # Time limit prevents runaway jobs (90 minutes is sufficient for this project)
+    timeout-minutes: 90
     
     strategy:
       # Don't cancel other analysis if one fails
