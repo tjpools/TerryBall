@@ -1,9 +1,13 @@
 # TerryBall with Analytics
 ## A Deep Dive into Combinatorial Complexity and the Illusion of Control
 
+[![Deploy to GitHub Pages](https://github.com/tjpools/TerryBall/actions/workflows/deploy.yml/badge.svg)](https://github.com/tjpools/TerryBall/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://tjpools.github.io/TerryBall/)
 
 > *"The numbers are constructed, not arbitrary. The interface is theater, not substance. The odds are mathematical, not negotiable."*
+
+**🌍 [Play TerryBall Live](https://tjpools.github.io/TerryBall/)** - Experience the trap yourself!
 
 ## 🎯 What Is This?
 
